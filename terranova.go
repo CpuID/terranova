@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hashicorp/terraform/config/module"
+	"github.com/hashicorp/terraform/configs/configload"
 	"github.com/hashicorp/terraform/terraform"
 )
 
@@ -74,7 +74,7 @@ func (p *Platform) Plan(destroy bool) (*terraform.Plan, error) {
 
 // newContext creates the Terraform context or configuration
 func (p *Platform) newContext(destroy bool) (*terraform.Context, error) {
-	module, err := p.module()
+	config, err := p.config()
 	if err != nil {
 		return nil, err
 	}
@@ -83,18 +83,19 @@ func (p *Platform) newContext(destroy bool) (*terraform.Context, error) {
 	provisioners := p.getProvisioners()
 
 	// Create ContextOpts with the current state and variables to apply
+	// TODO: deal with module/s?
 	ctxOpts := &terraform.ContextOpts{
 		Destroy:          destroy,
 		State:            p.State,
 		Variables:        p.Vars,
-		Module:           module,
+		Config:           config,
 		ProviderResolver: providerResolver,
 		Provisioners:     provisioners,
 	}
 
 	ctx, err := terraform.NewContext(ctxOpts)
 	if err != nil {
-		return nil, err
+		return nil, err.Err()
 	}
 
 	// TODO: Validate the context
@@ -102,7 +103,7 @@ func (p *Platform) newContext(destroy bool) (*terraform.Context, error) {
 	return ctx, nil
 }
 
-func (p *Platform) module() (*module.Tree, error) {
+func (p *Platform) config() (*configs.Config, error) {
 	if len(p.Code) == 0 {
 		return nil, fmt.Errorf("no code to apply")
 	}
@@ -127,23 +128,19 @@ func (p *Platform) module() (*module.Tree, error) {
 		return nil, err
 	}
 
-	mod, err := module.NewTreeModule("", cfgPath)
-	if err != nil {
-		return nil, err
+	conf, diag := configload.LoadConfig(cfgPath)
+	if len(diag.Errs()) > 0 {
+		return nil, fmt.Errorf(diag.Error())
 	}
 
-	s := module.NewStorage(filepath.Join(cfgPath, "modules"), nil)
-	s.Mode = module.GetModeNone // or module.GetModeGet?
+	// TODO: deal with modules
 
-	if err := mod.Load(s); err != nil {
-		return nil, fmt.Errorf("failed to load the modules. %s", err)
-	}
+	// TODO: work out how to feed a configs.Config into a config.Config so we can run .Validate() on it...
+	//if err := conf.Validate().Err(); err != nil {
+	//	return nil, fmt.Errorf("failed Terraform code validation. %s", err)
+	//}
 
-	if err := mod.Validate().Err(); err != nil {
-		return nil, fmt.Errorf("failed Terraform code validation. %s", err)
-	}
-
-	return mod, nil
+	return conf, nil
 }
 
 func (p *Platform) getProviderResolver() terraform.ResourceProviderResolver {
