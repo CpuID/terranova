@@ -1,4 +1,4 @@
-module github.com/johandry/terranova
+module github.com/CpuID/terranova
 
 go 1.12
 
