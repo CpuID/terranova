@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hashicorp/terraform/configs"
 	"github.com/hashicorp/terraform/configs/configload"
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -38,18 +39,20 @@ func (p *Platform) Apply(destroy bool) error {
 
 	// state := ctx.State()
 
-	if _, err := ctx.Refresh(); err != nil {
-		return err
+	_, diag := ctx.Refresh()
+	if diag.Err() != nil {
+		return diag.Err()
 	}
 
-	if _, err := ctx.Plan(); err != nil {
-		return err
+	_, diag = ctx.Plan()
+	if diag.Err() != nil {
+		return diag.Err()
 	}
 
-	_, err = ctx.Apply()
+	_, diag = ctx.Apply()
 	p.State = ctx.State()
 
-	return err
+	return err.Err()
 }
 
 // Plan returns execution plan for an existing configuration to apply to the

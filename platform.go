@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform/terraform/states"
 	"github.com/terraform-providers/terraform-provider-null/null"
 )
 
@@ -36,6 +37,7 @@ type Platform struct {
 }
 
 // State is an alias for terraform.State
+// TODO: should this be states.State?
 type State = terraform.State
 
 // NewPlatform return an instance of Platform with default values
